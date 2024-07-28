@@ -25,7 +25,7 @@ library(randomForest)
 library(e1071)
 
 #Load data set
-df <- read.csv("C:/Users/shir1/OneDrive/מסמכים/שנה ב/סמסטר ב/Road Accident Data.csv",stringsAsFactors = TRUE)
+df <- read.csv("data/Road Accident Data.csv", stringsAsFactors = TRUE)
 
 ```
 
