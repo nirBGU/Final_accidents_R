@@ -1,0 +1,329 @@
+---
+title: "Severity of road accidents"
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Research Question
+
+how some characteristics affects the severity of the accident?
+
+## Data set
+
+```{r message=FALSE, warning=FALSE}
+ 
+#Load required libraries
+library(tidyverse)
+library(caret)
+library(rpart.plot)
+library(randomForest)
+library(e1071)
+
+#Load data set
+df <- read.csv("C:/Users/shir1/OneDrive/מסמכים/שנה ב/סמסטר ב/Road Accident Data.csv",stringsAsFactors = TRUE)
+
+```
+
+
+## Data Engineering
+
+```{r}
+
+#Exclude ID and date columns, Latitude, longitude, Carriageway_Hazards, local authority and police force 
+df <- df[-c(1,2,7,9,10,11,12,14,18)] 
+
+
+# Setting the outcome variable "Slight" = 1,"Serious" =2,"Fatal" =3
+df$Accident_Severity <- recode(df$Accident_Severity, "Fetal"  = "Fatal")
+
+#Day_of_Week
+df$Day_of_Week <- as.numeric(df$Day_of_Week)
+
+# Junction_Control
+df$Junction_Control <- recode(df$Junction_Control, "Auto traffic sigl" = "Auto traffic signal")
+df$Junction_Control[df$Junction_Control == "Data missing or out of range"] <- NA
+
+#Junction_Detail
+df$Junction_Detail <- recode(df$Junction_Detail, "Mini-roundabout" = "Roundabout")
+df$Junction_Detail[df$Junction_Detail == "Other junction"] <- NA  
+
+#Light_Conditions Daylight =1, Darkness=0
+df$Light_Conditions <- ifelse(df$Light_Conditions == "Daylight",1,0)
+
+#Road_Surface_Conditions
+df$Road_Surface_Conditions[df$Road_Surface_Conditions == ""] <- NA
+
+#Road_Type
+df$Road_Type[df$Road_Type == ""] <- NA
+
+#Urban_or_Rural_Area binary variable(Urban =1, Rural = 0) 
+df$Urban_or_Rural_Area <- ifelse(df$Urban_or_Rural_Area == "Urban",1,0)
+
+#Vehicle_Type
+df$Vehicle_Type <- recode(df$Vehicle_Type,
+  "Motorcycle 125cc and under" = "Motorcycle",
+  "Motorcycle 50cc and under" = "Motorcycle",
+  "Motorcycle over 125cc and up to 500cc" = "Motorcycle",
+  "Motorcycle over 500cc" = "Motorcycle",
+  "Minibus (8 - 16 passenger seats)" = "Bus",
+  "Bus or coach (17 or more pass seats)" = "Bus", 
+  "Goods 7.5 tonnes mgw and over" = "Goods Vehicle",
+  "Goods over 3.5t. and under 7.5t" = "Goods Vehicle",
+  "Van / Goods 3.5 tonnes mgw or under" = "Goods Vehicle",
+  "Taxi/Private hire car" = "Car"
+)
+
+
+#Weather_Conditions
+df$Weather_Conditions[df$Weather_Conditions == ""] <- NA
+
+```
+```{r}
+#speed limit and Accident Severity
+ggplot(data = df,aes(Accident_Severity,Speed_limit, fill= Accident_Severity)) +
+  geom_boxplot() + theme_minimal() + theme(legend.position = "None" )
+```
+
+
+
+```{r}
+#Checking for a missing values
+apply(is.na(df),2,sum)
+
+#Exclude missing values
+df <- na.omit(df)
+```
+
+```{r}
+#Dummy variables
+df_new <- df[c("Junction_Control","Junction_Detail","Light_Conditions",
+               "Road_Surface_Conditions","Road_Type","Weather_Conditions","Vehicle_Type" )]
+dummy <- dummyVars("~ .", data = df_new)
+df_dummy <- data.frame(predict(dummy, newdata = df_new))
+
+#Combining other columns
+df_final <- cbind(df[setdiff(names(df),names(df_new))],df_dummy)
+```
+
+```{r}
+#Splitting data set
+set.seed(123)  #set random seed
+#Split data set into train (70%) and validation(30%) data
+index <- sample(nrow(df_final),0.80*nrow(df_final),replace = F)
+train <- df_final[index,]
+testset <- df_final[-index,]
+
+# Handling class imbalance using upsample
+set.seed(123) #set random seed
+trainset <- upSample(x = train[-4],
+                     y = train$Accident_Severity,
+                     yname = "Accident_Severity")
+```
+
+
+## Random Foest
+
+```{r}
+#Fitting forest model
+rand_mod <- randomForest(Accident_Severity ~ ., data = trainset,ntree= 300)
+#model summary
+rand_mod
+#model plot
+plot(rand_mod,main = "Random Forest")
+```
+
+```{r}
+#Variable Importance Plot
+imp <- varImp(rand_mod)
+imp <- as.data.frame(imp)
+imp$varnames <- rownames(imp) # row names to column
+rownames(imp) <- NULL  
+
+ggplot(imp[1:10,], aes(x=reorder(varnames, Overall), 
+                       weight=Overall, fill=as.factor(varnames))) + 
+  geom_bar() + coord_flip()+
+  scale_fill_discrete(name="Variable Group") +
+  theme_minimal() + theme(legend.position = "None" )+
+  labs(title = "Top 10 important variables",y="MeanDecreaseGini",x= "Variable Name")
+
+
+#prediction
+rand_pred <- predict(rand_mod,testset)
+
+#Confusion matrix
+confusionMatrix(rand_pred, testset$Accident_Severity)
+```
+```{r}
+# Predictions
+# Make predictions for both probabilities and classes on training data
+predictions_prob_train <- predict(rand_mod, trainset, type = "prob")
+predictions_class_train <- predict(rand_mod, trainset, type = "class")
+
+# Combine predictions with actual train data
+predictions_train <- bind_cols(as_tibble(predictions_prob_train), .pred_class = predictions_class_train, Accident_Severity = trainset$Accident_Severity)
+
+# Make predictions for both probabilities and classes on testing data
+predictions_prob_test <- predict(rand_mod, testset, type = "prob")
+predictions_class_test <- predict(rand_mod, testset, type = "class")
+
+# Combine predictions with actual test data
+predictions_test <- bind_cols(as_tibble(predictions_prob_test), .pred_class = predictions_class_test, Accident_Severity = testset$Accident_Severity)
+
+# Ensure factor levels are consistent
+predictions_train <- predictions_train %>%
+  mutate(.pred_class = factor(.pred_class, levels = levels(trainset$Accident_Severity)))
+predictions_test <- predictions_test %>%
+  mutate(.pred_class = factor(.pred_class, levels = levels(testset$Accident_Severity)))
+
+```
+
+```{r}
+# Metrics Calculation
+compute_metrics <- function(predictions, truth_col, estimate_col, prob_col) {
+  accuracy <- accuracy(predictions, truth = {{truth_col}}, estimate = {{estimate_col}})
+  f1_score <- f_meas(predictions, truth = {{truth_col}}, estimate = {{estimate_col}})
+  precision <- precision(predictions, truth = {{truth_col}}, estimate = {{estimate_col}})
+  recall <- recall(predictions, truth = {{truth_col}}, estimate = {{estimate_col}})
+  specificity <- specificity(predictions, truth = {{truth_col}}, estimate = {{estimate_col}})
+  
+  metrics <- bind_rows(
+    accuracy %>% mutate(metric = "accuracy"),
+    f1_score %>% mutate(metric = "f1_score"),
+    precision %>% mutate(metric = "precision"),
+    recall %>% mutate(metric = "recall"),
+    specificity %>% mutate(metric = "specificity"),
+  )
+  return(metrics)
+}
+
+# Compute metrics for training data
+metrics_train <- compute_metrics(predictions_train, Accident_Severity, .pred_class, .pred_Fatal)
+
+# Compute metrics for testing data
+metrics_test <- compute_metrics(predictions_test, Accident_Severity, .pred_class, .pred_Fatal)
+
+# Combine metrics for both train and test
+all_metrics <- bind_rows(
+  metrics_train %>% mutate(dataset = "train"),
+  metrics_test %>% mutate(dataset = "test")
+)
+
+# Print all metrics
+print(all_metrics)
+
+```
+
+```{r}
+# Calculate feature importance using the final fitted random forest model
+importance_values <- importance(rand_mod)
+
+# Convert to a tibble and arrange in descending order of importance
+importance_df <- as_tibble(importance_values, rownames = "Feature") %>%
+  rename(Importance = MeanDecreaseGini) %>%
+  arrange(desc(Importance)) %>%
+  top_n(10, wt = Importance)  # Select top 10 features
+
+# Print feature importance
+print(importance_df)
+
+# Plot feature importance with a colorful palette
+ggplot(importance_df, aes(x = reorder(Feature, Importance), y = Importance, fill = Feature)) +
+  geom_bar(stat = "identity", color = "white") +
+  coord_flip() +
+  scale_fill_brewer(palette = "Set3") +  # Use a colorful palette
+  labs(
+    title = "Feature Importance from Random Forest",
+    x = "Features",
+    y = "Importance"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_rect(fill = "white"),
+    plot.background = element_rect(fill = "white"),
+    axis.line = element_line(color = "black"),
+    legend.position = "none"  # Remove legend
+  )
+
+
+```
+
+
+## Decision tree
+
+```{r}
+#model training
+deci_mod <- rpart(Accident_Severity ~ ., data = trainset)
+
+#summary of model
+summary(deci_mod)
+
+#tree plot
+rpart.plot(deci_mod)
+
+#prediction
+deci_pred <- predict(deci_mod,testset,type = "class")
+
+#Confusion matrix
+confusionMatrix(deci_pred, testset$Accident_Severity)
+```
+
+```{r}
+#another tree with 5 nodes 
+library(rpart)
+library(rpart.plot)
+library(caret)
+
+# Set control parameters for a more complex tree
+control_params <- rpart.control(cp = 0.001,     # Lower cp to allow more splits
+                                minsplit = 5,  # Minimum number of observations to split
+                                maxdepth = 5)  # Maximum depth of the tree
+
+# Model training with control parameters
+deci_mod <- rpart(Accident_Severity ~ ., data = trainset, control = control_params)
+
+# Summary of model
+summary(deci_mod)
+
+# Enhanced tree plot with more nodes and details
+rpart.plot(deci_mod, 
+           type = 4,           # Display both split labels and node labels
+           extra = 104,        # Display probabilities and percentages
+           under = TRUE,       # Display number of observations under each node
+           faclen = 0,         # Use full names for factor labels
+           fallen.leaves = TRUE, # Leaves at the bottom of the plot
+           digits = 2,         # Number of digits to display in probabilities
+           varlen = 0)         # Use full names for variables
+
+# Prediction
+deci_pred <- predict(deci_mod, testset, type = "class")
+
+# Confusion matrix
+confusionMatrix(deci_pred, testset$Accident_Severity)
+```
+
+```{r}
+#model training
+deci_mod <- rpart(Accident_Severity ~ ., data = trainset,
+                  control = rpart.control(cp = 0.00050))
+
+#summary of model
+summary(deci_mod)
+
+#tree plot
+rpart.plot(deci_mod)
+```
+
+
+
+
