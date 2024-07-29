@@ -1,0 +1,151 @@
+```{r load-packages, echo=FALSE, message=FALSE}
+library(knitr)
+library(tidyverse)
+library(broom)
+library(htmltools)
+library(ggplot2)
+library(skimr)
+library(rmarkdown)
+library(tinytex)
+
+data <- read.csv("C:/Users/shir1/OneDrive/מסמכים/שנה ב/סמסטר ב/Road Accident Data.csv",stringsAsFactors = TRUE)
+
+```
+
+**Visualizations**
+
+```{r echo=FALSE}
+# Histogram of Accident Severity
+# Clean the data: Merge "Fatal" and "Fetal" into one category
+data$Accident_Severity <- recode(data$Accident_Severity, "Fetal" = "Fatal")
+
+# Create histogram of Accident Severity
+ggplot(data, aes(x = Accident_Severity, fill = Accident_Severity)) +
+  geom_bar() +
+  labs(title = "Distribution of Accident Severity", x = "Accident Severity", y = "Count") +
+  scale_fill_brewer(palette = "Set3") +
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
+  theme_minimal()
+
+
+```
+
+
+```{r echo=FALSE}
+# Histogram of Junction Control
+# Recode the categories
+data <- data %>%
+  mutate(Junction_Control = recode(Junction_Control,
+                                   `Auto traffic sigl` = "Auto traffic signal"))
+
+# Plot the bar chart
+ggplot(data, aes(x = Junction_Control, fill = Junction_Control)) +
+  geom_bar() +
+  labs(title = "Distribution of Junction Control Types", x = "Junction Control", y = "Count") +
+  scale_fill_brewer(palette = "Set3") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+```{r echo=FALSE}
+# Pie chart of Road Surface Conditions
+# Summarize the data to get counts of each road surface condition
+road_surface_counts <- data %>%
+  group_by(Road_Surface_Conditions) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+ggplot(road_surface_counts, aes(x = "", y = count, fill = Road_Surface_Conditions)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y") +
+  labs(title = "Distribution of Road Surface Conditions") +
+  scale_fill_brewer(palette = "Set3") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank())
+
+```
+
+```{r}
+# Histogram of Urban or Rural distrubution by Severity
+# Load necessary libraries
+library(tidyverse)
+library(scales)
+
+# Data preparation
+data <- data %>% 
+  filter(!is.na(Accident_Severity)) %>% 
+  filter(Accident_Severity %in% c("Slight", "Serious", "Fatal"))  # Ensures only these categories are included
+
+# Ensure factors are correctly set
+data$Urban_or_Rural_Area <- as.factor(data$Urban_or_Rural_Area)
+data$Accident_Severity <- factor(data$Accident_Severity, levels = c("Slight", "Serious", "Fatal"))
+
+# Create a grouped bar plot with percentages and increased font sizes
+ggplot(data, aes(x = Accident_Severity, fill = Urban_or_Rural_Area)) +
+  geom_bar(position = "fill") +
+  geom_text(aes(label = scales::percent(..count../tapply(..count.., ..x.., sum)[..x..])),
+            stat = "count",
+            position = position_fill(vjust = 0.5),
+            size = 5) +  # Increased text size
+  labs(title = "Distribution of Urban and Rural Accidents by Severity", 
+       x = "Accident Severity", 
+       y = "Percentage") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 20, face = "bold", hjust = 0.5),  # Increased title size
+    axis.title.x = element_text(size = 16),  # Increased x-axis title size
+    axis.title.y = element_text(size = 16),  # Increased y-axis title size
+    axis.text.x = element_text(size = 14),  # Increased x-axis text size
+    axis.text.y = element_text(size = 14)  # Increased y-axis text size
+  )
+
+```
+
+```{r}
+# Histogram of Urban or Rural distrubution 
+data$Urban_or_Rural_Area <- as.factor(data$Urban_or_Rural_Area)
+
+# Create a bar plot for Urban or Rural Area with percentages
+ggplot(data, aes(x = Urban_or_Rural_Area, fill = Urban_or_Rural_Area)) +
+  geom_bar() +
+  geom_text(stat = 'count', aes(label = scales::percent(..count../sum(..count..))),
+            position = position_stack(vjust = 0.5)) +
+  labs(title = "Percentage of Accidents in Urban vs. Rural Areas",
+       x = "Area Type", y = "Count of Accidents") +
+  scale_fill_brewer(palette = "Set1") +
+  theme_minimal()
+```
+
+```{r}
+# Summarize and calculate percentages
+accident_summary <- table(data$Urban_or_Rural_Area)
+accident_percentage <- prop.table(accident_summary) * 100
+
+# Print summary with percentages
+summary_df <- data.frame(Count = accident_summary, Percentage = accident_percentage)
+print(summary_df)
+```
+
+
+```{r}
+# Histogram of Day of the week distrubution
+# Ensure Day_of_Week is a factor with ordered days
+data$Day_of_Week <- factor(data$Day_of_Week, levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+
+# Calculate the total number of accidents for percentage calculation
+total_accidents <- nrow(data)
+
+# Create a bar plot of Accident Distribution by Day of Week with percentages
+ggplot(data, aes(x = Day_of_Week)) +
+  geom_bar(aes(y = (..count.. / total_accidents) * 100), fill = "steelblue") +
+  geom_text(aes(y = (..count.. / total_accidents) * 100, label = scales::percent(..count.. / total_accidents)),
+            stat = "count", vjust = -0.5, size = 3) +
+  labs(title = "Distribution of Accidents by Day of Week",
+       x = "Day of Week", y = "Percentage of Accidents") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Adjust text angle for better readability
+```
+
+
