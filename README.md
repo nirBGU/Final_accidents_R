@@ -16,7 +16,7 @@ Install them using R command:
 
   ### Data Setup
 - The dataset `Road Accident Data.csv` is required for this analysis.
-- **Download the dataset**: The dataset can be downloaded from [Kaggle](). Ensure to place the downloaded CSV file in the following directory within the cloned project folder:
+- **Download the dataset**: The dataset can be downloaded from [Kaggle](https://www.kaggle.com/datasets/nextmillionaire/car-accident-dataset). Ensure to place the downloaded CSV file in the following directory within the cloned project folder:
 
 place the csv path in line 27
 '#Load data set
