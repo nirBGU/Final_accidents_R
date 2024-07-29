@@ -1,0 +1,239 @@
+---
+title: "Project proposal"
+author: "Team 14 - Shir Fux, Neta Nachtailer, Nir Levin"
+output: pdf_document
+---
+
+```{r load-packages, echo=FALSE, message=FALSE}
+library(knitr)
+library(tidyverse)
+library(broom)
+library(htmltools)
+library(ggplot2)
+library(skimr)
+library(rmarkdown)
+library(tinytex)
+```
+
+```{r setup, include = FALSE}
+opts_chunk$set(echo=FALSE) # hide source code in the document
+```
+
+## 1.Introduction
+**Our general data science question is:**
+how do road characteristics influence the severity of road accidents? 
+
+**General Problem Area:**
+Road safety is a critical issue globally, with traffic accidents causing significant fatalities, injuries, and economic costs. Analyzing the factors that influence the severity of road accidents can improve safety measures, traffic management and policy making, by providing data-driven insights into the determinants of accident severity.
+
+**Specific Problem:**
+We aim to understand how various road characteristics, such as environmental conditions (weather, light), traffic control measures (junction controls, speed limits), vehicle types, road types, and surface conditions, collectively influence the severity of road accidents. Identifying these factors can help develop strategies to reduce the severity of accidents. This understanding is particularly important for Israel, as it allows for direct comparison and application of insights to improve local road safety measures.
+
+**Importance:**
+
+1.Public Safety: Reducing accident severity can save lives and prevent injuries.
+
+2.Economic Impact: Severe accidents incur high costs due to medical expenses, productivity loss, and infrastructure damage.
+
+3.Policy Making: Data-driven insights inform better traffic regulations and infrastructure improvements.
+
+**Challenges:**
+
+1.Complex Interactions: Many factors, like weather, road type, and time of day, all affect accident severity in different ways and can influence each other. This makes it hard to understand which factors are most important.
+
+2.Variability in Conditions: Road and traffic conditions vary widely, complicating generalizations. 
+
+3.Dynamic Nature: Road conditions change rapidly, requiring up-to-date data for accurate analysis. 
+
+4.Applying Findings to Israel: Taking the clear conclusions from our analysis and comparing them to the situation in Israel is another challenge. The goal of our work is to provide insights specifically for improving road safety in Israel.
+
+**Approach:**
+
+1.Data Collection and Preparation: we will use a comprehensive dataset with variables related to road characteristics and accident details. We will begin by clean and preprocess the data for accuracy and completeness.
+
+2.Exploring the data: We will conduct initial analysis to understand variable distributions and relationships. We will also generate summary statistics and visualizations of the data.
+
+3.Modeling: We will apply statistical methods and machine learning models and conduct feature importance analysis.
+
+4.Evaluation and Interpretation: We will assess model performance and interpret results and identify key predictors that most significantly influence the severity of road accidents.
+
+5.Recommendations and Insights: Finally, we will propose actionable recommendations based on our findings and results, and present them clearly with visualizations and reports, emphasizing practical implications.  
+
+By following this approach, we aim to provide a comprehensive analysis of how road characteristics influence the severity of road accidents, offering valuable insights for improving traffic safety and accident prevention. Our goal is to apply the findings and insights from this research specifically to the context of Israel. This localized application will ensure that the recommendations are relevant and effective for improving road safety within Israel, addressing unique local conditions, traffic patterns, and regulatory environments.
+
+## 2. Data
+**High-Level Description of the Data:**
+The dataset we are using for this project is the "Road Accident Data" dataset. This dataset contains detailed information about road accidents in Kensington and Chelsea (UK) in January 2021, including various road characteristics and environmental conditions that may influence the severity of these accidents. The data is comprehensive and includes multiple variables that are critical for our analysis.
+
+**Dataset Characteristics:**
+The dataset comprises 21 variables, including categorical, discrete numerical, and continuous numerical variables. The key variables are:
+
+1.Accident_Index: Unique identifier for each accident.
+
+2.Accident Date: Date when the accident occurred.
+
+3.Day_of_Week: Day of the week when the accident occurred.
+
+4.Junction_Control: Type of traffic control at the junction where the accident occurred.
+
+5.Junction_Detail: Specific details about the junction.
+
+6.Accident_Severity: Severity of the accident (Slight, Serious, Fatal).
+
+7.Latitude: Latitude of the accident location.
+
+8.Longitude: Longitude of the accident location.
+
+9.Light_Conditions: Lighting conditions at the time of the accident.
+
+10.Local_Authority_(District): District where the accident occurred.
+
+11.Carriageway_Hazards: Any hazards present on the carriageway.
+
+12.Number_of_Casualties: Number of casualties resulting from the accident.
+
+13.Number_of_Vehicles: Number of vehicles involved in the accident.
+
+14.Police_Force: Police force that attended the accident.
+
+15.Road_Surface_Conditions: Condition of the road surface at the time of the accident.
+
+16.Road_Type: Type of road where the accident occurred.
+
+17.Speed_Limit: Speed limit on the road where the accident occurred.
+
+18.Time: Time of the accident (hour).
+
+19.Urban_or_Rural_Area: Whether the accident occurred in an urban or rural area.
+
+20.Weather_Conditions: Weather conditions at the time of the accident.
+
+21.Vehicle_Type: Type of vehicles involved in the accident.
+
+
+### Data README
+```{r include=FALSE}
+data <- read.csv("/Users/ofekzini/Downloads/propozal/Road Accident Data.csv")
+
+glimpse(data)
+```
+
+```{r include_data_readme, echo=FALSE, warning=FALSE, comment=''}
+cat(readLines('/Users/ofekzini/Downloads/propozal/README.md'), sep = '\n')
+```
+## 3. Preliminary results
+
+To explore the factors influencing road accident severity, we conducted an initial data analysis on the provided dataset. This section presents summary statistics and visualizations that help us understand the data, identify potential patterns, and assess the suitability of the dataset for our research.
+
+We will check for null values and identify columns with unusual values 
+```{r echo=FALSE}
+# Check for null values and identify columns with unusual values 
+null_values <- sapply(data, function(x) sum(is.na(x)))
+null_values
+
+# skim(data)
+```
+As we can see, there aren't any missing values, but there are empty values- a column that shows the number of empty strings for each variable. 
+These values exist only in 4 columns, and their amount is relatively small compared to the total number of records, which suggests that the dataset is generally complete and suitable for analysis.
+
+We can also see that the values of the Standard Deviation (sd) for the numerical variables, that measures the amount of variation or dispersion of a set of values is quite low, which means that the values tend to be close to the mean of the set. This indicates there aren't many unusual values.
+
+**Visualizations**
+
+```{r echo=FALSE}
+#Visualizations
+# Histogram of Accident Severity
+# Clean the data: Merge "Fatal" and "Fetal" into one category
+data$Accident_Severity <- recode(data$Accident_Severity, "Fetal" = "Fatal")
+
+# Create histogram of Accident Severity
+ggplot(data, aes(x = Accident_Severity, fill = Accident_Severity)) +
+  geom_bar() +
+  labs(title = "Distribution of Accident Severity", x = "Accident Severity", y = "Count") +
+  scale_fill_brewer(palette = "Set3") +
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
+  theme_minimal()
+
+
+```
+This histogram shows the distribution of accident severities, helping us understand the proportion of each severity level in the dataset. This is crucial for identifying the most common outcomes and focusing safety measures accordingly.
+```{r echo=FALSE}
+# Bar chart of Junction Control Types
+ggplot(data, aes(x = Junction_Control, fill = Junction_Control)) +
+  geom_bar() +
+  labs(title = "Distribution of Junction Control Types", x = "Junction Control", y = "Count") +
+  scale_fill_brewer(palette = "Set3") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+This bar chart illustrates the distribution of different junction control types. Understanding which types of controls are most common can help identify areas for potential safety improvements, such as upgrading from stop signs to traffic signals at busy intersections.
+```{r echo=FALSE}
+# Summarize the data to get counts of each road surface condition
+road_surface_counts <- data %>%
+  group_by(Road_Surface_Conditions) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count))
+
+# Pie chart of Road Surface Conditions
+ggplot(road_surface_counts, aes(x = "", y = count, fill = Road_Surface_Conditions)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y") +
+  labs(title = "Distribution of Road Surface Conditions") +
+  scale_fill_brewer(palette = "Set3") +
+  theme_minimal() +
+  theme(axis.text.x = element_blank())
+
+```
+
+This pie chart shows the proportion of different road surface conditions in the dataset. By understanding the distribution of road surface conditions, we can identify which conditions are most common and prioritize improvements to those surfaces to reduce accident severity.
+
+## 4. Data analysis plan
+Our work plan is comprised of several essential steps, outlined below, to ensure a methodical and organized approach to addressing our research question and making relevant connections to road safety improvements in Israel.
+
+**Outcome and Predictor Variables:**
+The outcome variable (response, Y) we will use to answer our question is Accident Severity. 
+The predictor variables (explanatory, X) include the following road characteristics: weather conditions, time of day and light conditions, junction control, vehicle type, road type and road surface conditions.
+
+**Comparison Groups:** We will use the following comparison groups to analyze the data:
+
+1.Urban vs. Rural Areas: Comparing accident severity between urban and rural areas to identify significant differences influenced by the environment.
+
+2.Different Weather Conditions: Comparing accident severity under various weather conditions (e.g., clear, rain) to understand how weather impacts accident severity.
+
+3.Time of Day & Light Conditions: Comparing accidents that occur during different times of the day (e.g., morning, afternoon, night) and under different lighting conditions (e.g., daylight, darkness, dawn) to see if certain times are associated with higher severity and understand the influence of visibility on severity.
+
+4.Day of the Week: Analyzing accident severity across different days of the week to determine if weekends or weekdays show different patterns.
+
+5.Vehicle Type: Comparing the severity of accidents involving different types of vehicles (e.g., cars, motorcycles, trucks) to identify any significant differences.
+
+6.Road Type: Analyzing accident severity on different road types (e.g., single carriageway, dual carriageway) to understand how road structure influences outcomes.
+
+7.Junction Control Types: Comparing accidents at various junction control types (e.g., traffic signals, stop signs, uncontrolled junctions) to determine if certain controls are associated with higher severity.
+
+8.Road Surface Conditions: Comparing accidents under different road surface conditions (e.g., dry, wet, icy) to see how these conditions affect severity.
+
+**Methods:** To answer our research question effectively, we will employ the following methods:
+
+1.Statistical Analysis: Descriptive statistics and graphical representations to analyze the distribution of the predictor variables.
+
+2.Correlation & Regression Analysis: To identify and measure the strength of relationships between predictor variables and accident severity.
+
+3.Classification Models: Decision trees and random forests to predict accident severity and identify key predictors. 
+These models can handle complex interactions between variables and provide reliable predictions.
+
+**Expected Results:** The results from these specific statistical methods needed to support our hypothesized answer include:
+
+1.Key Predictors Identification: Identifying the main factors influencing   accident severity and understanding their impact on the outcome.
+
+2.Model Performance Evaluation: Assessing the accuracy and performance of predictive models (e.g., decision trees, random forests) in forecasting accident severity using evaluation metrics (e.g., accuracy, precision, recall).
+
+**Team Work:** We will divide the work to the following 3 categories: 
+data generation and cleaning, model creation and analysis and visualization 
+We will also focus on translating our findings into actionable insights that can enhance road safety strategies in Israel.
+
+
+### Source code
+
+```{r, ref.label=knitr::all_labels(), echo=TRUE, eval=FALSE}
+
+```
